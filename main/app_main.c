@@ -71,15 +71,15 @@ static void WaitMs(unsigned delay) {
 
 
 static int GetTemperature(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg) {
-    // int rc = os_mbuf_append(ctxt->om, ...);
-    // return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
-    return BLE_ATT_ERR_INSUFFICIENT_RES;
+    int16_t temperature = 2150;
+    int rc = os_mbuf_append(ctxt->om, &temperature, sizeof(temperature));
+    return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
 }
 
 static int GetHumidity(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg) {
-    // int rc = os_mbuf_append(ctxt->om, ...);
-    // return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
-    return BLE_ATT_ERR_INSUFFICIENT_RES;
+    uint16_t humidity = 3670;
+    int rc = os_mbuf_append(ctxt->om, &humidity, sizeof(humidity));
+    return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
 }
 
 static const struct ble_gatt_svc_def kBleServices[] = {
@@ -230,7 +230,7 @@ void app_main(void) {
     // Run BLE
     nimble_port_freertos_init(StartBleService);
 
-    SetDeviceName("AHT20 sensor");
+    SetDeviceName("AHT20 Destiny");
     StartAdvertisement();
 
     InitializeI2C();
