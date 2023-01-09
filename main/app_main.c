@@ -59,6 +59,8 @@
 #define GATT_ESS_TEMPERATURE_UUID               0x2A6E
 #define GATT_ESS_HUMIDITY_UUID                  0x2A6F
 
+static int16_t temperature;
+static uint16_t humidity;
 
 static void SetLedState(bool state) {
     gpio_set_direction(LED_GPIO_PIN, GPIO_MODE_OUTPUT);
@@ -71,13 +73,11 @@ static void WaitMs(unsigned delay) {
 
 
 static int GetTemperature(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg) {
-    int16_t temperature = 2150;
     int rc = os_mbuf_append(ctxt->om, &temperature, sizeof(temperature));
     return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
 }
 
 static int GetHumidity(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg) {
-    uint16_t humidity = 3670;
     int rc = os_mbuf_append(ctxt->om, &humidity, sizeof(humidity));
     return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
 }
@@ -239,5 +239,37 @@ void app_main(void) {
 error:
     while (1) {
         WaitMs(1000);
+
+        uint8_t cmd[3];
+        cmd[0] = 0xBA;
+        WriteToTheSensor(&cmd, 1);
+        WaitMs(20);
+        cmd[0] = 0xE1;
+        cmd[1] = 0x08;
+        cmd[2] = 0x00;
+        WriteToTheSensor(&cmd, 3);
+        WaitMs(100);
+    
+        uint8_t cmd2[3] = {0xAC, 0x33, 0};
+        WriteToTheSensor(&cmd2, 3);
+        WaitMs(300);
+
+        uint8_t data[6];
+        ReadFromTheSensor(&data, 6);
+        uint32_t h = data[1];
+        h <<= 8;
+        h |= data[2];
+        h <<= 4;
+        h |= data[3] >> 4;
+        humidity = ((float)h * 100) / 0x100000;
+        humidity /= 0.01;
+
+        uint32_t tdata = data[3] & 0x0F;
+        tdata <<= 8;
+        tdata |= data[4];
+        tdata <<= 8;
+        tdata |= data[5];
+        temperature = ((float)tdata * 200 / 0x100000) - 50;
+        temperature /= 0.01;
     };
 }
