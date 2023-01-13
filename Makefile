@@ -14,6 +14,10 @@ setup:
 	make setup-idf
 	make setup-flash
 
+setup-arch:
+	make setup-idf-arch
+	make setup-flash
+
 setup-light:
 	make setup-idf-light
 
