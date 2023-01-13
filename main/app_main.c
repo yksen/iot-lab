@@ -63,8 +63,8 @@
 #define CMD_CALIBRATE                           0xE1
 #define STATUS_CALIBRATED                       0x08
 
-static int16_t temperature;
-static uint16_t humidity;
+static float temperature;
+static float humidity;
 
 static void SetLedState(bool state) {
     gpio_set_direction(LED_GPIO_PIN, GPIO_MODE_OUTPUT);
