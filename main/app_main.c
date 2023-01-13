@@ -45,7 +45,6 @@
 
 // Hardware configuration
 #define LED_GPIO_PIN                            GPIO_NUM_1
-
 #define I2C_PORT_NUMBER                         I2C_NUM_0
 #define I2C_CLK_FREQUENCY                       100000
 #define I2C_SDA_PIN                             GPIO_NUM_4
@@ -53,11 +52,16 @@
 #define I2C_TIMEOUT                             (100 / portTICK_RATE_MS)
 #define I2C_AHT20_ADDRESS                       0x38
 
-
 // Bluetooth configuration (Environmental Sensing Service)
 #define GATT_ESS_UUID                           0x181A
 #define GATT_ESS_TEMPERATURE_UUID               0x2A6E
 #define GATT_ESS_HUMIDITY_UUID                  0x2A6F
+
+// Sensor configuration
+#define CMD_SOFTRESET                           0xBA
+#define CMD_TRIGGER                             0xAC
+#define CMD_CALIBRATE                           0xE1
+#define STATUS_CALIBRATED                       0x08
 
 static int16_t temperature;
 static uint16_t humidity;
@@ -70,7 +74,6 @@ static void SetLedState(bool state) {
 static void WaitMs(unsigned delay) {
     vTaskDelay(delay / portTICK_PERIOD_MS);
 }
-
 
 static int GetTemperature(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg) {
     int rc = os_mbuf_append(ctxt->om, &temperature, sizeof(temperature));
@@ -103,7 +106,6 @@ static const struct ble_gatt_svc_def kBleServices[] = {
         0,  // no more services
     },
 };
-
 
 static void StartAdvertisement(void);
 
@@ -192,10 +194,38 @@ static void ReadFromTheSensor(uint8_t *buffer, size_t length) {
     i2c_master_read_from_device(I2C_PORT_NUMBER, I2C_AHT20_ADDRESS, buffer, length, I2C_TIMEOUT);
 }
 
+void GetValuesFromSensor() {
+    uint8_t cmd_softreset = CMD_SOFTRESET;
+    WriteToTheSensor(&cmd_softreset, 1);
+    WaitMs(20);
 
+    uint8_t cmd_calibrate = { CMD_CALIBRATE, STATUS_CALIBRATED, 0x00 };
+    WriteToTheSensor(&cmd_calibrate, 3);
+    WaitMs(100);
 
+    uint8_t cmd_trigger[3] = { CMD_TRIGGER, 0x33, 0 };
+    WriteToTheSensor(&cmd_trigger, 3);
+    WaitMs(300);
 
+    uint8_t data[6];
+    ReadFromTheSensor(&data, 6);
 
+    uint32_t hData = data[1];
+    hData <<= 8;
+    hData |= data[2];
+    hData <<= 4;
+    hData |= data[3] >> 4;
+    humidity = ((float)hData * 100) / 0x100000;
+    humidity /= 0.01;
+
+    uint32_t tData = data[3] & 0x0F;
+    tData <<= 8;
+    tData |= data[4];
+    tData <<= 8;
+    tData |= data[5];
+    temperature = ((float)tData * 200 / 0x100000) - 50;
+    temperature /= 0.01;
+}
 
 void app_main(void) {
     // Initialize Non-Volatile Memory
@@ -239,37 +269,6 @@ void app_main(void) {
 error:
     while (1) {
         WaitMs(1000);
-
-        uint8_t cmd[3];
-        cmd[0] = 0xBA;
-        WriteToTheSensor(&cmd, 1);
-        WaitMs(20);
-        cmd[0] = 0xE1;
-        cmd[1] = 0x08;
-        cmd[2] = 0x00;
-        WriteToTheSensor(&cmd, 3);
-        WaitMs(100);
-    
-        uint8_t cmd2[3] = {0xAC, 0x33, 0};
-        WriteToTheSensor(&cmd2, 3);
-        WaitMs(300);
-
-        uint8_t data[6];
-        ReadFromTheSensor(&data, 6);
-        uint32_t h = data[1];
-        h <<= 8;
-        h |= data[2];
-        h <<= 4;
-        h |= data[3] >> 4;
-        humidity = ((float)h * 100) / 0x100000;
-        humidity /= 0.01;
-
-        uint32_t tdata = data[3] & 0x0F;
-        tdata <<= 8;
-        tdata |= data[4];
-        tdata <<= 8;
-        tdata |= data[5];
-        temperature = ((float)tdata * 200 / 0x100000) - 50;
-        temperature /= 0.01;
+        GetValuesFromSensor();
     };
 }
