@@ -13,10 +13,21 @@ setup-idf:
 	make idf-download
 	make idf-setup-tools
 
+setup-idf-arch:
+	make idf-install-prerequisites-arch
+	make idf-download
+	make idf-setup-tools
+
 setup-idf-light:
 	make idf-download
 	make idf-setup-tools
 
+idf-install-prerequisites-arch:
+	${SUDO} pacman -Syy git wget flex bison gperf python3 python-pip \
+	                           python-setuptools cmake ninja ccache \
+	                           libffi openssl dfu-util libusb \
+	&& ${SUDO} pacman -Sy rustup
+	
 idf-install-prerequisites:
 	${SUDO} apt-get update \
 	&& ${SUDO} apt-get install -y git wget flex bison gperf python3 python3-pip \
