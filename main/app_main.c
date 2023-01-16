@@ -63,8 +63,8 @@
 #define CMD_CALIBRATE                           0xE1
 #define STATUS_CALIBRATED                       0x08
 
-static float temperature;
-static float humidity;
+static int16_t temperature;
+static uint16_t humidity;
 
 static void SetLedState(bool state) {
     gpio_set_direction(LED_GPIO_PIN, GPIO_MODE_OUTPUT);
@@ -215,16 +215,14 @@ void GetValuesFromSensor() {
     hData |= data[2];
     hData <<= 4;
     hData |= data[3] >> 4;
-    humidity = ((float)hData * 100) / 0x100000;
-    humidity /= 0.01;
+    humidity = ((float)hData * 100) / 0x100000 * 100;
 
     uint32_t tData = data[3] & 0x0F;
     tData <<= 8;
     tData |= data[4];
     tData <<= 8;
     tData |= data[5];
-    temperature = ((float)tData * 200 / 0x100000) - 50;
-    temperature /= 0.01;
+    temperature = (((float)tData * 200 / 0x100000) - 50) * 100;
 }
 
 void app_main(void) {
