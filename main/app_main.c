@@ -63,8 +63,13 @@
 #define CMD_CALIBRATE                           0xE1
 #define STATUS_CALIBRATED                       0x08
 
-static int16_t temperature;
 static uint16_t humidity;
+static int16_t temperature;
+
+static bool device_connected;
+static uint16_t conn_handle;
+static uint16_t humidity_handle;
+static uint16_t temperature_handle;
 
 static void SetLedState(bool state) {
     gpio_set_direction(LED_GPIO_PIN, GPIO_MODE_OUTPUT);
@@ -93,11 +98,13 @@ static const struct ble_gatt_svc_def kBleServices[] = {
         { {
                 .uuid = BLE_UUID16_DECLARE(GATT_ESS_TEMPERATURE_UUID),
                 .access_cb = GetTemperature,
-                .flags = BLE_GATT_CHR_F_READ,
+                .val_handle = &temperature_handle,
+                .flags = BLE_GATT_CHR_F_NOTIFY,
             }, {
                 .uuid = BLE_UUID16_DECLARE(GATT_ESS_HUMIDITY_UUID),
                 .access_cb = GetHumidity,
-                .flags = BLE_GATT_CHR_F_READ,
+                .val_handle = &humidity_handle,
+                .flags = BLE_GATT_CHR_F_NOTIFY,
             }, {
                 0,  // no more characteristics
             },
@@ -114,12 +121,15 @@ static int OnBleGapEvent(struct ble_gap_event *event, void *arg) {
         case BLE_GAP_EVENT_CONNECT:
             ESP_LOGI("BLE GAP Event", "Connected");
             SetLedState(true);
+            device_connected = true;
+            conn_handle = event->connect.conn_handle;
             break;
 
         case BLE_GAP_EVENT_DISCONNECT:
             ESP_LOGI("BLE GAP Event", "Disconnected");
             SetLedState(false);
             StartAdvertisement();
+            device_connected = false;
             break;
 
         default:
@@ -270,5 +280,15 @@ error:
     while (1) {
         WaitMs(1000);
         GetValuesFromSensor();
+        
+        if (device_connected)
+        {
+            struct os_mbuf *om;
+            om = ble_hs_mbuf_from_flat(&humidity, sizeof(humidity));
+            rc = ble_gattc_notify_custom(conn_handle, humidity_handle, om);
+
+            om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
+            rc = ble_gattc_notify_custom(conn_handle, temperature_handle, om);
+        }
     };
 }
