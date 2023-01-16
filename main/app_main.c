@@ -71,6 +71,8 @@ static uint16_t conn_handle;
 static uint16_t humidity_handle;
 static uint16_t temperature_handle;
 
+static xTimerHandle timer;
+
 static void SetLedState(bool state) {
     gpio_set_direction(LED_GPIO_PIN, GPIO_MODE_OUTPUT);
     gpio_set_level(LED_GPIO_PIN, state ? 1 : 0);
@@ -237,6 +239,22 @@ void GetValuesFromSensor() {
     ESP_LOGI("Values from sensors", "Humidity: %f, Temperature: %f", (float)humidity / 100, (float)temperature / 100);
 }
 
+void GetAndNotifyValues()
+{
+    GetValuesFromSensor();
+    
+    if (device_connected)
+    {
+        int rc;
+        struct os_mbuf *om;
+        om = ble_hs_mbuf_from_flat(&humidity, sizeof(humidity));
+        rc = ble_gattc_notify_custom(conn_handle, humidity_handle, om);
+
+        om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
+        rc = ble_gattc_notify_custom(conn_handle, temperature_handle, om);
+    }
+}
+
 void app_main(void) {
     // Initialize Non-Volatile Memory
     esp_err_t ret = nvs_flash_init();
@@ -275,20 +293,11 @@ void app_main(void) {
 
     InitializeI2C();
 
+    timer = xTimerCreate("timer", pdMS_TO_TICKS(1000), pdTRUE, (void *)0, GetAndNotifyValues);
+    xTimerStart(timer, 1);
 
 error:
     while (1) {
         WaitMs(1000);
-        GetValuesFromSensor();
-        
-        if (device_connected)
-        {
-            struct os_mbuf *om;
-            om = ble_hs_mbuf_from_flat(&humidity, sizeof(humidity));
-            rc = ble_gattc_notify_custom(conn_handle, humidity_handle, om);
-
-            om = ble_hs_mbuf_from_flat(&temperature, sizeof(temperature));
-            rc = ble_gattc_notify_custom(conn_handle, temperature_handle, om);
-        }
     };
 }
