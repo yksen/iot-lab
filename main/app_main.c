@@ -223,6 +223,8 @@ void GetValuesFromSensor() {
     tData <<= 8;
     tData |= data[5];
     temperature = (((float)tData * 200 / 0x100000) - 50) * 100;
+
+    ESP_LOGI("Values from sensors", "Humidity: %f, Temperature: %f", (float)humidity / 100, (float)temperature / 100);
 }
 
 void app_main(void) {
