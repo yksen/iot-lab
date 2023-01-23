@@ -1,4 +1,5 @@
 #include <esp_log.h>
+#include <esp_console.h>
 #include <nvs_flash.h>
 
 #include <esp_nimble_hci.h>
@@ -22,6 +23,12 @@
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
+#include "lwip/inet.h"
+#include "lwip/netdb.h"
+#include "lwip/sockets.h"
+
+#include "argtable3/argtable3.h"
+#include "ping/ping_sock.h"
 
 // BLE specification: Assigned Numbers
 // link: https://btprodspecificationrefs.blob.core.windows.net/assigned-numbers/Assigned%20Number%20Types/Assigned%20Numbers.pdf
@@ -90,13 +97,13 @@
 #define STATUS_CALIBRATED                       0x08
 
 // Wi-Fi configuration
-#define ESP_WIFI_SSID                           "student"
+#define ESP_WIFI_SSID                           "iot"
 #define ESP_WIFI_PASS                           "iotpasswd"
 #define ESP_MAXIMUM_RETRY                       5
 #define WIFI_CONNECTED_BIT                      BIT0
 #define WIFI_FAIL_BIT                           BIT1
 
-static EventGroupHandle_t wifi_event_group;
+static EventGroupHandle_t s_wifi_event_group;
 static const char *TAG = "Wi-Fi station";
 static int retry_num = 0;
 
@@ -109,6 +116,8 @@ static uint16_t humidity_handle;
 static uint16_t temperature_handle;
 
 static xTimerHandle timer;
+
+    static EventGroupHandle_t s_s_wifi_event_group;
 
 static void SetLedState(bool state) {
     gpio_set_direction(LED_GPIO_PIN, GPIO_MODE_OUTPUT);
@@ -292,32 +301,33 @@ void GetAndNotifyValues()
     }
 }
 
+void initialize_ping();
+
 static void EventHandler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
-    ESP_LOGI(TAG,"event handler executed");
+    ESP_LOGI(TAG,"event handler executed %d %d", event_id, (int)event_base);
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
+        ESP_LOGI(TAG, "wifi started");
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         if (retry_num < ESP_MAXIMUM_RETRY) {
             esp_wifi_connect();
             retry_num++;
             ESP_LOGI(TAG, "retry to connect to the AP");
-        } else {
-            xEventGroupSetBits(wifi_event_group, WIFI_FAIL_BIT);
         }
         ESP_LOGI(TAG,"connect to the AP fail");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+        initialize_ping();
         retry_num = 0;
-        xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
 
 void WifiInitSTA(void)
 {
-    wifi_event_group = xEventGroupCreate();
+    // s_wifi_event_group = xEventGroupCreate();
 
     ESP_ERROR_CHECK(esp_netif_init());
 
@@ -344,6 +354,7 @@ void WifiInitSTA(void)
         .sta = {
             .ssid = ESP_WIFI_SSID,
             .password = ESP_WIFI_PASS,
+            .threshold.authmode = WIFI_AUTH_WPA2_PSK
         },
     };
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
@@ -352,10 +363,98 @@ void WifiInitSTA(void)
 
     ESP_LOGI(TAG, "wifi_init_sta finished.");
 
+    // EventBits_t bits = xEventGroupWaitBits(s_s_wifi_event_group,
+    //     WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+    //     pdFALSE,
+    //     pdFALSE,
+    //     portMAX_DELAY);
+
+    // /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
+    //  * happened. */
+    // if (bits & WIFI_CONNECTED_BIT) {
+    //     ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
+    //              ESP_WIFI_SSID, ESP_WIFI_PASS);
+    // } else if (bits & WIFI_FAIL_BIT) {
+    //     ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
+    //              ESP_WIFI_SSID, ESP_WIFI_PASS);
+    // } else {
+    //     ESP_LOGE(TAG, "UNEXPECTED EVENT");
+    // }
+
     /* The event will not be processed after unregister */
-    ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
-    ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
-    vEventGroupDelete(wifi_event_group);
+    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
+    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
+    // vEventGroupDelete(s_wifi_event_group);
+}
+
+static void test_on_ping_success(esp_ping_handle_t hdl, void *args)
+{
+    // optionally, get callback arguments
+    // const char* str = (const char*) args;
+    // printf("%s\r\n", str); // "foo"
+    uint8_t ttl;
+    uint16_t seqno;
+    uint32_t elapsed_time, recv_len;
+    ip_addr_t target_addr;
+    esp_ping_get_profile(hdl, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_TTL, &ttl, sizeof(ttl));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_SIZE, &recv_len, sizeof(recv_len));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_TIMEGAP, &elapsed_time, sizeof(elapsed_time));
+    ESP_LOGI("ping", "%d bytes from %s icmp_seq=%d ttl=%d time=%d ms\n",
+           recv_len, ipaddr_ntoa((ip_addr_t*)&target_addr), seqno, ttl, elapsed_time);
+}
+
+static void test_on_ping_timeout(esp_ping_handle_t hdl, void *args)
+{
+    uint16_t seqno;
+    ip_addr_t target_addr;
+    esp_ping_get_profile(hdl, ESP_PING_PROF_SEQNO, &seqno, sizeof(seqno));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_IPADDR, &target_addr, sizeof(target_addr));
+    ESP_LOGI("ping", "From %s icmp_seq=%d timeout\n",ipaddr_ntoa((ip_addr_t*)&target_addr), seqno);
+}
+
+static void test_on_ping_end(esp_ping_handle_t hdl, void *args)
+{
+    uint32_t transmitted;
+    uint32_t received;
+    uint32_t total_time_ms;
+
+    esp_ping_get_profile(hdl, ESP_PING_PROF_REQUEST, &transmitted, sizeof(transmitted));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_REPLY, &received, sizeof(received));
+    esp_ping_get_profile(hdl, ESP_PING_PROF_DURATION, &total_time_ms, sizeof(total_time_ms));
+    ESP_LOGI("ping", "%d packets transmitted, %d received, time %dms\n", transmitted, received, total_time_ms);
+}
+
+void initialize_ping()
+{
+    ESP_LOGI("ping", "ping initializing...");
+    /* convert URL to IP address */
+    ip_addr_t target_addr;
+    struct addrinfo hint;
+    struct addrinfo *res = NULL;
+    memset(&hint, 0, sizeof(hint));
+    memset(&target_addr, 0, sizeof(target_addr));
+    getaddrinfo("www.google.com", NULL, &hint, &res);
+    struct in_addr addr4 = ((struct sockaddr_in *) (res->ai_addr))->sin_addr;
+    inet_addr_to_ip4addr(ip_2_ip4(&target_addr), &addr4);
+    freeaddrinfo(res);
+
+    esp_ping_config_t ping_config = ESP_PING_DEFAULT_CONFIG();
+    ping_config.target_addr = target_addr;          // target IP address
+    ping_config.count = ESP_PING_COUNT_INFINITE;    // ping in infinite mode, esp_ping_stop can stop it
+
+    /* set callback functions */
+    esp_ping_callbacks_t cbs;
+    cbs.on_ping_success = test_on_ping_success;
+    cbs.on_ping_timeout = test_on_ping_timeout;
+    cbs.on_ping_end = test_on_ping_end;
+    cbs.cb_args = NULL;
+
+    ESP_LOGI("ping", "ping start...");
+    esp_ping_handle_t ping;
+    esp_ping_new_session(&ping_config, &cbs, &ping);
+    esp_ping_start(ping);
 }
 
 void app_main(void) {
@@ -396,9 +495,11 @@ void app_main(void) {
 
     InitializeI2C();
 
-    timer = xTimerCreate("timer", pdMS_TO_TICKS(1000), pdTRUE, (void *)0, GetAndNotifyValues);
+    timer = xTimerCreate("timer", pdMS_TO_TICKS(10000), pdTRUE, (void *)0, GetAndNotifyValues);
     xTimerStart(timer, 1);
+
     WifiInitSTA();
+
 
 error:
     while (1) {
