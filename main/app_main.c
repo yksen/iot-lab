@@ -154,11 +154,11 @@ static const struct ble_gatt_svc_def kBleServices[] = {
                 .val_handle = &humidity_handle,
                 .flags = BLE_GATT_CHR_F_NOTIFY,
             }, {
-                0,  // no more characteristics
+                0,
             },
         }
     }, {
-        0,  // no more services
+        0,
     },
 };
 
@@ -320,15 +320,13 @@ static void EventHandler(void* arg, esp_event_base_t event_base,
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
-        initialize_ping();
         retry_num = 0;
+        initialize_ping();
     }
 }
 
 void WifiInitSTA(void)
 {
-    // s_wifi_event_group = xEventGroupCreate();
-
     ESP_ERROR_CHECK(esp_netif_init());
 
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -362,36 +360,10 @@ void WifiInitSTA(void)
     ESP_ERROR_CHECK(esp_wifi_start() );
 
     ESP_LOGI(TAG, "wifi_init_sta finished.");
-
-    // EventBits_t bits = xEventGroupWaitBits(s_s_wifi_event_group,
-    //     WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-    //     pdFALSE,
-    //     pdFALSE,
-    //     portMAX_DELAY);
-
-    // /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
-    //  * happened. */
-    // if (bits & WIFI_CONNECTED_BIT) {
-    //     ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
-    //              ESP_WIFI_SSID, ESP_WIFI_PASS);
-    // } else if (bits & WIFI_FAIL_BIT) {
-    //     ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
-    //              ESP_WIFI_SSID, ESP_WIFI_PASS);
-    // } else {
-    //     ESP_LOGE(TAG, "UNEXPECTED EVENT");
-    // }
-
-    /* The event will not be processed after unregister */
-    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
-    // ESP_ERROR_CHECK(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
-    // vEventGroupDelete(s_wifi_event_group);
 }
 
 static void test_on_ping_success(esp_ping_handle_t hdl, void *args)
 {
-    // optionally, get callback arguments
-    // const char* str = (const char*) args;
-    // printf("%s\r\n", str); // "foo"
     uint8_t ttl;
     uint16_t seqno;
     uint32_t elapsed_time, recv_len;
@@ -428,7 +400,6 @@ static void test_on_ping_end(esp_ping_handle_t hdl, void *args)
 
 void initialize_ping()
 {
-    ESP_LOGI("ping", "ping initializing...");
     /* convert URL to IP address */
     ip_addr_t target_addr;
     struct addrinfo hint;
@@ -451,7 +422,6 @@ void initialize_ping()
     cbs.on_ping_end = test_on_ping_end;
     cbs.cb_args = NULL;
 
-    ESP_LOGI("ping", "ping start...");
     esp_ping_handle_t ping;
     esp_ping_new_session(&ping_config, &cbs, &ping);
     esp_ping_start(ping);
@@ -499,7 +469,6 @@ void app_main(void) {
     xTimerStart(timer, 1);
 
     WifiInitSTA();
-
 
 error:
     while (1) {
