@@ -5,6 +5,7 @@
 
 #include "include/wifi.h"
 #include "include/sensor.h"
+#include "include/mqtt.h"
 
 static xTimerHandle timer;
 
@@ -25,4 +26,6 @@ void app_main(void)
     xTimerStart(timer, 1);
 
     wifiInitSTA();
+
+    mqtt_app_start();
 }
