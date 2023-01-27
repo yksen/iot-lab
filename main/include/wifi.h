@@ -38,7 +38,7 @@
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
 
-static const char *WIFI_TAG = "Wi-Fi station";
+static const char *TAG_WIFI = "Wi-Fi station";
 static int retry_num = 0;
 
 void initializePing();
@@ -46,10 +46,10 @@ void initializePing();
 static void eventHandler(void *arg, esp_event_base_t event_base,
                          int32_t event_id, void *event_data)
 {
-    ESP_LOGI(WIFI_TAG, "event handler executed %d %d", event_id, (int)event_base);
+    ESP_LOGI(TAG_WIFI, "event handler executed %d %d", event_id, (int)event_base);
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START)
     {
-        ESP_LOGI(WIFI_TAG, "wifi started");
+        ESP_LOGI(TAG_WIFI, "wifi started");
         esp_wifi_connect();
     }
     else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
@@ -58,16 +58,16 @@ static void eventHandler(void *arg, esp_event_base_t event_base,
         {
             esp_wifi_connect();
             retry_num++;
-            ESP_LOGI(WIFI_TAG, "retry to connect to the AP");
+            ESP_LOGI(TAG_WIFI, "retry to connect to the AP");
         }
-        ESP_LOGI(WIFI_TAG, "connect to the AP fail");
+        ESP_LOGI(TAG_WIFI, "connect to the AP fail");
     }
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
-        ESP_LOGI(WIFI_TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+        ESP_LOGI(TAG_WIFI, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         retry_num = 0;
-        initializePing();
+        // initializePing();
     }
 }
 
@@ -104,7 +104,7 @@ void wifiInitSTA(void)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
-    ESP_LOGI(WIFI_TAG, "wifi_init_sta finished.");
+    ESP_LOGI(TAG_WIFI, "wifi_init_sta finished.");
 }
 
 static void testOnPingSuccess(esp_ping_handle_t hdl, void *args)
