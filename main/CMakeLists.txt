@@ -6,6 +6,6 @@ idf_component_register(
                     $ENV{IDF_PATH}/components/bt/host/bluedroid/api/include
                     $ENV{IDF_PATH}/components/bt/host/nimble/nimble/nimble/host/include/host
                     $ENV{IDF_PATH}/components/driver/include
-
-    REQUIRES soc nvs_flash driver bt console
+    
+    REQUIRES soc nvs_flash driver bt console mqtt
 )
