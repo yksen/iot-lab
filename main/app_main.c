@@ -4,10 +4,10 @@
 #include <driver/gpio.h>
 
 #include "include/wifi.h"
-#include "include/sensor.h"
 #include "include/mqtt.h"
 
-static xTimerHandle timer;
+static xTimerHandle timerBT;
+static xTimerHandle timerMQTT;
 
 void app_main(void)
 {
@@ -21,11 +21,11 @@ void app_main(void)
     }
 
     initializeBluetoothI2C();
-
-    timer = xTimerCreate("timer", pdMS_TO_TICKS(10000), pdTRUE, (void *)0, getAndNotifyValues);
-    xTimerStart(timer, 1);
-
     wifiInitSTA();
 
-    mqtt_app_start();
+    timerBT = xTimerCreate("timerBT", pdMS_TO_TICKS(10000), pdTRUE, (void *)0, getAndNotifyValues);
+    xTimerStart(timerBT, 1);
+
+    timerMQTT = xTimerCreate("timerMQTT", pdMS_TO_TICKS(30000), pdTRUE, (void *)0, mqtt_app_start);
+    xTimerStart(timerMQTT, 1);
 }
