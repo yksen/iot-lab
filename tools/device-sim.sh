@@ -1,7 +1,7 @@
 #!/bin/bash
 
-DEVICE_ID="YOUR-DEVICE-ID"
-DEVICE_TOKEN="YOUR-DEVICE-TOKEN"
+DEVICE_ID="kcQvFok0S4rahYTnfezRTIx3"
+DEVICE_TOKEN="maker:4jrExtJr32uoVBrPrnJN7K23URhTkHStLJ8LFUMO"
 
 simulate_measurement () {
     local measurement=$1
@@ -13,7 +13,7 @@ simulate_measurement () {
          -d "{ \"value\": ${value} }"
 }
 
-for i in {1..20}; do
+for i in {1..100}; do
     temperature=$(((RANDOM + RANDOM) % 30))
     humidity=$(((RANDOM + RANDOM) % 100))
 
@@ -22,5 +22,5 @@ for i in {1..20}; do
     simulate_measurement "temperature" ${temperature}
     simulate_measurement "humidity" ${humidity}
 
-    sleep 1
+    sleep 5
 done
