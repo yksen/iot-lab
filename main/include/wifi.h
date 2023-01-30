@@ -14,23 +14,7 @@
 #include "argtable3/argtable3.h"
 #include "ping/ping_sock.h"
 
-#if CONFIG_ESP_WIFI_AUTH_OPEN
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_OPEN
-#elif CONFIG_ESP_WIFI_AUTH_WEP
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WEP
-#elif CONFIG_ESP_WIFI_AUTH_WPA_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA_PSK
-#elif CONFIG_ESP_WIFI_AUTH_WPA2_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA2_PSK
-#elif CONFIG_ESP_WIFI_AUTH_WPA_WPA2_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA_WPA2_PSK
-#elif CONFIG_ESP_WIFI_AUTH_WPA3_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA3_PSK
-#elif CONFIG_ESP_WIFI_AUTH_WPA2_WPA3_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WPA2_WPA3_PSK
-#elif CONFIG_ESP_WIFI_AUTH_WAPI_PSK
-#define ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD WIFI_AUTH_WAPI_PSK
-#endif
+#include "http.h"
 
 #define ESP_WIFI_SSID "iot"
 #define ESP_WIFI_PASS "iotpasswd"
@@ -40,6 +24,8 @@
 
 static const char *TAG_WIFI = "Wi-Fi station";
 static int retry_num = 0;
+
+static xTimerHandle timerHTTP; 
 
 void initializePing();
 
@@ -68,6 +54,8 @@ static void eventHandler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG_WIFI, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         retry_num = 0;
         // initializePing();
+        timerHTTP = xTimerCreate("timerHTTP", pdMS_TO_TICKS(10000), pdTRUE, (void *)0, httpPutSensorValues);
+        xTimerStart(timerHTTP, 1);
     }
 }
 

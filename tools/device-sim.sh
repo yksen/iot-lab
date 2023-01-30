@@ -7,7 +7,7 @@ simulate_measurement () {
     local measurement=$1
     local value=$2
 
-    curl -X PUT "http://api.allthingstalk.io/device/${DEVICE_ID}/asset/${measurement}/state"    \
+    curl -v -X PUT "http://api.allthingstalk.io/device/${DEVICE_ID}/asset/${measurement}/state"    \
          -H "Authorization: Bearer ${DEVICE_TOKEN}"                                             \
          -H "Content-Type: application/json"                                                    \
          -d "{ \"value\": ${value} }"
