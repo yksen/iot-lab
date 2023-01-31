@@ -19,13 +19,14 @@
 #include "esp_log.h"
 #include "mqtt_client.h"
 
-#include "sensor.h"
+extern uint16_t humidity;
+extern int16_t temperature;
 
 static const char *TAG_MQTT =           "MQTT";
 static const char *TOPIC_HUMIDITY =     "/destiny/sensor/humidity";
 static const char *TOPIC_TEMPERATURE =  "/destiny/sensor/temperature";
 
-static void log_error_if_nonzero(const char *message, int error_code)
+static void logErrorIfNonZero(const char *message, int error_code)
 {
     if (error_code != 0)
     {
@@ -33,17 +34,7 @@ static void log_error_if_nonzero(const char *message, int error_code)
     }
 }
 
-/*
- * @brief Event handler registered to receive MQTT events
- *
- *  This function is called by the MQTT client event loop.
- *
- * @param handler_args user data registered to the event.
- * @param base Event base for the handler(always MQTT Base in this example).
- * @param event_id The id for the received event.
- * @param event_data The data for the event, esp_mqtt_event_handle_t.
- */
-static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
+static void mqttEventHandler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
     ESP_LOGD(TAG_MQTT, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
     esp_mqtt_event_handle_t event = event_data;
@@ -53,8 +44,6 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG_MQTT, "MQTT_EVENT_CONNECTED");
-
-        getValuesFromSensor();
         
         char temperature_string[16];
         sprintf(temperature_string, "%f", temperature / 100.f);
@@ -92,9 +81,9 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         ESP_LOGI(TAG_MQTT, "MQTT_EVENT_ERROR");
         if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
         {
-            log_error_if_nonzero("reported from esp-tls", event->error_handle->esp_tls_last_esp_err);
-            log_error_if_nonzero("reported from tls stack", event->error_handle->esp_tls_stack_err);
-            log_error_if_nonzero("captured as transport's socket errno", event->error_handle->esp_transport_sock_errno);
+            logErrorIfNonZero("reported from esp-tls", event->error_handle->esp_tls_last_esp_err);
+            logErrorIfNonZero("reported from tls stack", event->error_handle->esp_tls_stack_err);
+            logErrorIfNonZero("captured as transport's socket errno", event->error_handle->esp_transport_sock_errno);
             ESP_LOGI(TAG_MQTT, "Last errno string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
         }
         break;
@@ -104,14 +93,14 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-static void mqtt_app_start(void)
+static void mqttAppStart(void)
 {
     esp_mqtt_client_config_t mqtt_cfg = {
         .uri = "mqtt://broker.mqttdashboard.com:1883",
     };
 
     esp_mqtt_client_handle_t client = esp_mqtt_client_init(&mqtt_cfg);
-    /* The last argument may be used to pass data to the event handler, in this example mqtt_event_handler */
-    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+    /* The last argument may be used to pass data to the event handler, in this example mqttEventHandler */
+    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqttEventHandler, NULL);
     esp_mqtt_client_start(client);
 }
