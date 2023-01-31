@@ -29,8 +29,8 @@
 #define GATT_ESS_TEMPERATURE_UUID 0x2A6E
 #define GATT_ESS_HUMIDITY_UUID 0x2A6F
 
-static uint16_t humidity;
-static int16_t temperature;
+uint16_t humidity;
+int16_t temperature;
 
 static bool device_connected;
 static uint16_t conn_handle;

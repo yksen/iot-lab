@@ -14,8 +14,6 @@
 #include "argtable3/argtable3.h"
 #include "ping/ping_sock.h"
 
-#include "http.h"
-
 #define ESP_WIFI_SSID "iot"
 #define ESP_WIFI_PASS "iotpasswd"
 #define ESP_MAXIMUM_RETRY 5
@@ -28,6 +26,7 @@ static int retry_num = 0;
 static xTimerHandle timerHTTP; 
 
 void initializePing();
+void httpPutSensorValues();
 
 static void eventHandler(void *arg, esp_event_base_t event_base,
                          int32_t event_id, void *event_data)

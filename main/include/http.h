@@ -19,17 +19,18 @@
 
 #include "esp_http_client.h"
 
-#include "sensor.h"
-
 #define MAX_HTTP_RECV_BUFFER 512
 #define MAX_HTTP_OUTPUT_BUFFER 2048
 
 #define DEVICE_ID "kcQvFok0S4rahYTnfezRTIx3"
 #define DEVICE_TOKEN "maker:4jrExtJr32uoVBrPrnJN7K23URhTkHStLJ8LFUMO"
 
+extern uint16_t humidity;
+extern int16_t temperature;
+
 static const char *TAG_HTTP = "HTTP_CLIENT";
 
-esp_err_t _http_event_handler(esp_http_client_event_t *evt)
+esp_err_t httpEventHandler(esp_http_client_event_t *evt)
 {
     static char *output_buffer; // Buffer to store response of http request from event handler
     static int output_len;      // Stores number of bytes read
@@ -90,7 +91,7 @@ static void httpPutValue(const char *asset, float value)
     esp_http_client_config_t config = {
         .host = "api.allthingstalk.io",
         .path = path_string,
-        .event_handler = _http_event_handler,
+        .event_handler = httpEventHandler,
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
 
@@ -125,7 +126,7 @@ static void httpPutValue(const char *asset, float value)
     esp_http_client_cleanup(client);
 }
 
-static void httpPutSensorValues(void *pvParameters)
+void httpPutSensorValues()
 {
     getValuesFromSensor();
     httpPutValue("temperature", temperature / 100.f);
