@@ -18,6 +18,8 @@
 #define LED_GPIO_PIN1 GPIO_NUM_1
 #define LED_GPIO_PIN2 GPIO_NUM_2
 
+bool led_state = false;
+
 static struct
 {
     struct
@@ -33,6 +35,7 @@ static void setLedState(bool state, gpio_num_t pin)
 {
     gpio_set_direction(pin, GPIO_MODE_OUTPUT);
     gpio_set_level(pin, state ? 1 : 0);
+    led_state = state;
 }
 
 static void WaitMs(unsigned delay)
@@ -143,7 +146,7 @@ static esp_err_t GetPage(httpd_req_t *request)
         setLedState(true, LED_GPIO_PIN2);
     else if (strcmp(request->uri, "/ledoff") == 0)
         setLedState(false, LED_GPIO_PIN2);
-    sprintf(ctx.response_buffer + strlen(ctx.response_buffer), gpio_get_level(LED_GPIO_PIN2) ? "LED OFF" : "LED ON");
+    sprintf(ctx.response_buffer + strlen(ctx.response_buffer), led_state ? "ON" : "OFF");
     return httpd_resp_send(request, ctx.response_buffer, HTTPD_RESP_USE_STRLEN);
 }
 
