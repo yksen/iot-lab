@@ -14,18 +14,19 @@
 
 #include <driver/gpio.h>
 
-#define WIFI_CONNECTED_FLAG     BIT0
-#define LED_GPIO_PIN            GPIO_NUM_1
+#define WIFI_CONNECTED_FLAG BIT0
+#define LED_GPIO_PIN GPIO_NUM_1
 
-static struct {
-    struct {
+static struct
+{
+    struct
+    {
         EventGroupHandle_t wifi;
     } event_groups;
 
     char response_buffer[4096];
 } ctx = {
-    .response_buffer = { 0 }
-};
+    .response_buffer = {0}};
 
 static void setLedState(bool state)
 {
@@ -33,26 +34,30 @@ static void setLedState(bool state)
     gpio_set_level(LED_GPIO_PIN, state ? 1 : 0);
 }
 
-static void WaitMs(unsigned delay) {
+static void WaitMs(unsigned delay)
+{
     vTaskDelay(delay / portTICK_PERIOD_MS);
 }
 
-static void OnWiFiStackEvent(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
+static void OnWiFiStackEvent(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+{
     if (event_base != WIFI_EVENT)
         return;
 
-    switch (event_id) {
-        case WIFI_EVENT_STA_START:
-        case WIFI_EVENT_STA_DISCONNECTED:
-            setLedState(false);
-            esp_wifi_connect();
-            break;
-        default:
-            break;
+    switch (event_id)
+    {
+    case WIFI_EVENT_STA_START:
+    case WIFI_EVENT_STA_DISCONNECTED:
+        setLedState(false);
+        esp_wifi_connect();
+        break;
+    default:
+        break;
     }
 }
 
-static void OnIpStackEvent(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
+static void OnIpStackEvent(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
+{
     if (event_base != IP_EVENT)
         return;
 
@@ -60,12 +65,13 @@ static void OnIpStackEvent(void *arg, esp_event_base_t event_base, int32_t event
         return;
 
     setLedState(true);
-    ip_event_got_ip_t *event = (ip_event_got_ip_t*) event_data;
+    ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
     ESP_LOGI("WIFI", "AP address:" IPSTR, IP2STR(&event->ip_info.ip));
     xEventGroupSetBits(ctx.event_groups.wifi, WIFI_CONNECTED_FLAG);
 }
 
-void ConnectWiFi(char *ssid, char *password) {
+void ConnectWiFi(char *ssid, char *password)
+{
     esp_netif_init();
 
     esp_netif_create_default_wifi_sta();
@@ -89,14 +95,15 @@ void ConnectWiFi(char *ssid, char *password) {
         },
     };
 
-    strncpy((char*)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
-    strncpy((char*)wifi_config.sta.password, password, sizeof(wifi_config.sta.password));
+    strncpy((char *)wifi_config.sta.ssid, ssid, sizeof(wifi_config.sta.ssid));
+    strncpy((char *)wifi_config.sta.password, password, sizeof(wifi_config.sta.password));
     esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
 
     esp_wifi_start();
 }
 
-static bool WaitForConnection(void) {
+static bool WaitForConnection(void)
+{
     EventBits_t flags = xEventGroupWaitBits(ctx.event_groups.wifi, WIFI_CONNECTED_FLAG,
                                             pdFALSE, pdFALSE, portMAX_DELAY);
     bool connected = false;
@@ -109,11 +116,13 @@ static bool WaitForConnection(void) {
     return connected;
 }
 
-static void LoadFile(const char *filename, char *buffer, size_t buffer_size) {
+static void LoadFile(const char *filename, char *buffer, size_t buffer_size)
+{
     memset(buffer, 0, buffer_size);
 
     FILE *file = fopen(filename, "r");
-    if (file == NULL) {
+    if (file == NULL)
+    {
         ESP_LOGE("FS", "File %s not found", filename);
         return;
     }
@@ -124,47 +133,66 @@ static void LoadFile(const char *filename, char *buffer, size_t buffer_size) {
     fclose(file);
 }
 
-static esp_err_t GetMainPage(httpd_req_t *request) {
+static esp_err_t GetMainPage(httpd_req_t *request)
+{
     LoadFile("/www/index.html", ctx.response_buffer, sizeof(ctx.response_buffer));
     return httpd_resp_send(request, ctx.response_buffer, HTTPD_RESP_USE_STRLEN);
 }
 
-static bool CreateWWWServer(httpd_handle_t *server) {
+static esp_err_t GetAboutPage(httpd_req_t *request)
+{
+    LoadFile("/www/about.html", ctx.response_buffer, sizeof(ctx.response_buffer));
+    return httpd_resp_send(request, ctx.response_buffer, HTTPD_RESP_USE_STRLEN);
+}
+
+static bool CreateWWWServer(httpd_handle_t *server)
+{
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
     httpd_uri_t uri_get = {
         .uri = "/",
         .method = HTTP_GET,
         .handler = GetMainPage,
-        .user_ctx = NULL
-    };
+        .user_ctx = NULL};
+
+    httpd_uri_t uri_get_about = {
+        .uri = "/about.html",
+        .method = HTTP_GET,
+        .handler = GetAboutPage,
+        .user_ctx = NULL};
 
     if (httpd_start(server, &config) == ESP_OK)
+    {
         httpd_register_uri_handler(*server, &uri_get);
+        httpd_register_uri_handler(*server, &uri_get_about);
+    }
 
     return true;
 }
 
-static void InitializeFilesystem(void) {
+static void InitializeFilesystem(void)
+{
     esp_vfs_spiffs_conf_t fs_config = {
         .base_path = "/www",
         .partition_label = "www_data",
         .max_files = 3,
-        .format_if_mount_failed = false
-    };
+        .format_if_mount_failed = false};
 
     esp_vfs_spiffs_register(&fs_config);
 }
 
-static void InitializeNVS(void) {
+static void InitializeNVS(void)
+{
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
         nvs_flash_erase();
         nvs_flash_init();
     }
 }
 
-void app_main(void) {
+void app_main(void)
+{
     InitializeNVS();
     InitializeFilesystem();
 
@@ -183,7 +211,8 @@ void app_main(void) {
         goto error;
 
 error:
-    while (1) {
+    while (1)
+    {
         WaitMs(1000);
     };
 }
