@@ -35,7 +35,8 @@ static void setLedState(bool state, gpio_num_t pin)
 {
     gpio_set_direction(pin, GPIO_MODE_OUTPUT);
     gpio_set_level(pin, state ? 1 : 0);
-    led_state = state;
+    if (pin == LED_GPIO_PIN2)
+        led_state = state;
 }
 
 static void WaitMs(unsigned delay)
