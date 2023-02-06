@@ -15,7 +15,8 @@
 #include <driver/gpio.h>
 
 #define WIFI_CONNECTED_FLAG BIT0
-#define LED_GPIO_PIN GPIO_NUM_1
+#define LED_GPIO_PIN1 GPIO_NUM_1
+#define LED_GPIO_PIN2 GPIO_NUM_2
 
 static struct
 {
@@ -28,10 +29,10 @@ static struct
 } ctx = {
     .response_buffer = {0}};
 
-static void setLedState(bool state)
+static void setLedState(bool state, gpio_num_t pin)
 {
-    gpio_set_direction(LED_GPIO_PIN, GPIO_MODE_OUTPUT);
-    gpio_set_level(LED_GPIO_PIN, state ? 1 : 0);
+    gpio_set_direction(pin, GPIO_MODE_OUTPUT);
+    gpio_set_level(pin, state ? 1 : 0);
 }
 
 static void WaitMs(unsigned delay)
@@ -48,7 +49,7 @@ static void OnWiFiStackEvent(void *arg, esp_event_base_t event_base, int32_t eve
     {
     case WIFI_EVENT_STA_START:
     case WIFI_EVENT_STA_DISCONNECTED:
-        setLedState(false);
+        setLedState(false, LED_GPIO_PIN1);
         esp_wifi_connect();
         break;
     default:
@@ -64,7 +65,7 @@ static void OnIpStackEvent(void *arg, esp_event_base_t event_base, int32_t event
     if (event_id != IP_EVENT_STA_GOT_IP)
         return;
 
-    setLedState(true);
+    setLedState(true, LED_GPIO_PIN1);
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
     ESP_LOGI("WIFI", "AP address:" IPSTR, IP2STR(&event->ip_info.ip));
     xEventGroupSetBits(ctx.event_groups.wifi, WIFI_CONNECTED_FLAG);
@@ -133,15 +134,15 @@ static void LoadFile(const char *filename, char *buffer, size_t buffer_size)
     fclose(file);
 }
 
-static esp_err_t GetMainPage(httpd_req_t *request)
+static esp_err_t GetPage(httpd_req_t *request)
 {
     LoadFile("/www/index.html", ctx.response_buffer, sizeof(ctx.response_buffer));
-    return httpd_resp_send(request, ctx.response_buffer, HTTPD_RESP_USE_STRLEN);
-}
-
-static esp_err_t GetAboutPage(httpd_req_t *request)
-{
-    LoadFile("/www/about.html", ctx.response_buffer, sizeof(ctx.response_buffer));
+    if (strcmp(request->uri, "/about.html") == 0)
+        LoadFile("/www/about.html", ctx.response_buffer, sizeof(ctx.response_buffer));
+    else if (strcmp(request->uri, "/ledon") == 0)
+        setLedState(true, LED_GPIO_PIN2);
+    else if (strcmp(request->uri, "/ledoff") == 0)
+        setLedState(false, LED_GPIO_PIN2);
     return httpd_resp_send(request, ctx.response_buffer, HTTPD_RESP_USE_STRLEN);
 }
 
@@ -152,19 +153,33 @@ static bool CreateWWWServer(httpd_handle_t *server)
     httpd_uri_t uri_get = {
         .uri = "/",
         .method = HTTP_GET,
-        .handler = GetMainPage,
+        .handler = GetPage,
         .user_ctx = NULL};
 
     httpd_uri_t uri_get_about = {
         .uri = "/about.html",
         .method = HTTP_GET,
-        .handler = GetAboutPage,
+        .handler = GetPage,
+        .user_ctx = NULL};
+
+    httpd_uri_t uri_on = {
+        .uri = "/ledon",
+        .method = HTTP_GET,
+        .handler = GetPage,
+        .user_ctx = NULL};
+
+    httpd_uri_t uri_off = {
+        .uri = "/ledoff",
+        .method = HTTP_GET,
+        .handler = GetPage,
         .user_ctx = NULL};
 
     if (httpd_start(server, &config) == ESP_OK)
     {
         httpd_register_uri_handler(*server, &uri_get);
         httpd_register_uri_handler(*server, &uri_get_about);
+        httpd_register_uri_handler(*server, &uri_on);
+        httpd_register_uri_handler(*server, &uri_off);
     }
 
     return true;
