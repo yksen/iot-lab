@@ -15,6 +15,7 @@
 #include <driver/gpio.h>
 
 #define WIFI_CONNECTED_FLAG     BIT0
+#define LED_GPIO_PIN            GPIO_NUM_1
 
 static struct {
     struct {
@@ -25,6 +26,12 @@ static struct {
 } ctx = {
     .response_buffer = { 0 }
 };
+
+static void setLedState(bool state)
+{
+    gpio_set_direction(LED_GPIO_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(LED_GPIO_PIN, state ? 1 : 0);
+}
 
 static void WaitMs(unsigned delay) {
     vTaskDelay(delay / portTICK_PERIOD_MS);
@@ -37,6 +44,7 @@ static void OnWiFiStackEvent(void *arg, esp_event_base_t event_base, int32_t eve
     switch (event_id) {
         case WIFI_EVENT_STA_START:
         case WIFI_EVENT_STA_DISCONNECTED:
+            setLedState(false);
             esp_wifi_connect();
             break;
         default:
@@ -51,6 +59,7 @@ static void OnIpStackEvent(void *arg, esp_event_base_t event_base, int32_t event
     if (event_id != IP_EVENT_STA_GOT_IP)
         return;
 
+    setLedState(true);
     ip_event_got_ip_t *event = (ip_event_got_ip_t*) event_data;
     ESP_LOGI("WIFI", "AP address:" IPSTR, IP2STR(&event->ip_info.ip));
     xEventGroupSetBits(ctx.event_groups.wifi, WIFI_CONNECTED_FLAG);
@@ -162,7 +171,7 @@ void app_main(void) {
     esp_event_loop_create_default();
     ctx.event_groups.wifi = xEventGroupCreate();
 
-    ConnectWiFi("some-ssid", "some-password");
+    ConnectWiFi("iot", "iotpasswd");
 
     bool connected = WaitForConnection();
     if (connected == false)

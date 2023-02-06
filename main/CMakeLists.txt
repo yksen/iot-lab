@@ -3,12 +3,6 @@ idf_component_register(
 
     INCLUDE_DIRS    ${CMAKE_SOURCE_DIR}/main
                     $ENV{IDF_PATH}/components/driver/include
-<<<<<<< HEAD
-                    $ENV{IDF_PATH}/components/esp_http_client/include
-
-    REQUIRES soc nvs_flash driver bt console mqtt esp_http_client
-)
-=======
                     $ENV{IDF_PATH}/components/esp_http_server/include
                     $ENV{IDF_PATH}/components/nghttp/port/include
                     $ENV{IDF_PATH}/components/spiffs/include
@@ -18,4 +12,3 @@ idf_component_register(
 )
 
 spiffs_create_partition_image(www_data www FLASH_IN_PROJECT)
->>>>>>> 52ddc13ef4d60854213c991d8d28598b396b9477
