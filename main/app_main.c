@@ -143,6 +143,7 @@ static esp_err_t GetPage(httpd_req_t *request)
         setLedState(true, LED_GPIO_PIN2);
     else if (strcmp(request->uri, "/ledoff") == 0)
         setLedState(false, LED_GPIO_PIN2);
+    sprintf(ctx.response_buffer + strlen(ctx.response_buffer), gpio_get_level(LED_GPIO_PIN2) ? "LED OFF" : "LED ON");
     return httpd_resp_send(request, ctx.response_buffer, HTTPD_RESP_USE_STRLEN);
 }
 
